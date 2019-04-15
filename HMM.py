@@ -72,6 +72,13 @@ class HMM:
 		self._stags_num=defaultdict(int)		#训练集中标注的个数
 		self._stags_tran=defaultdict(int)		#训练集中ti出现在ti-1之后的次数
 
+	def turingAdd(self):
+		lens=len(self._stags)
+		stags=list(self._stags)
+		VALUE=1
+		for stag in stags:
+			self._stags_num[stag]+=lens*VALUE
+
 
 	def load_file(self,file_name):
 		input_data=codecs.open(file_name,"r","utf-8",'ignore')
@@ -174,8 +181,14 @@ class HMM:
 		for stag in self._stags:
 			print (stag,self._stags_num[stag])
 
+		for stag1 in self._stags:
+			for stag2 in self._stags:
+				print (stag1,"->",stag2,':',self._stags_tran[stag2,stag1])
+
 
 	def _sperdict(self,line):
+		#line.append('begin')	#-2
+		#line.append('end')		#-1
 		N=len(line)
 		M=len(self._stags_num)
 		#print (M)
@@ -184,29 +197,26 @@ class HMM:
 
 		P1=[[0 for i in range(M)] for j in range(N)]
 		P2=[[0 for i in range(M)] for j in range(M)]
-		flag=0
 		for i in range(0,N):
 			for j in range(0,M):
-				p=self._sword_stag_num[(line[i],stags[j])]/self._stags_num[stags[j]]
-				if line[i]==u"共" and flag==0:
-					print (stags[j])
-					print (self._sword_stag_num[(line[i],stags[j])],self._stags_num[stags[j]])
-					print (math.log(p))
+				p=(self._sword_stag_num[(line[i],stags[j])])/(self._stags_num[stags[j]])
 				if p==0:
-					p=0.0000000001
+					p=0.0000000000001
 				P1[i][j]=math.log(p)
-			flag=1
+
+		
 
 		for i in range(0,M):
 			for j in range(0,M):
-				p=self._stags_tran[(stags[i],stags[j])]/self._stags_num[stags[j]]
+				p=(self._stags_tran[(stags[i],stags[j])])/(self._stags_num[stags[j]])
 				if p==0:
-					p=0.0000000001
+					p=0.0000000000001
 				P2[i][j]=math.log(p)
 
 
 
 		DP=[[0 for i in range(M)] for j in range(N)]
+		Path=[[0 for i in range(M)] for j in range(N)]
 		ans=[0 for i in range(N)]
 
 		mmax=-3.14e+100
@@ -220,31 +230,29 @@ class HMM:
 				DP[0][j]=-3.14e+100
 			else:
 				DP[0][j]=-3.14e+100
-			if DP[0][j]>mmax:
-				mmax=DP[0][j]
-				ans[0]=stags[j]
-
-		#	p1=(self._sword_stag_num[(line[0],stags[j])]/self._stags_num[stags[j]])
-		#	if p1==0:
-		#		p1=0.001
-		#	DP[0][j]=math.log(p1)
-		#	if DP[0][j]>mmax:
-		#		mmax=DP[0][j]
-		#		ans[0]=stags[j]
 
 		for i in range(1,N):
-			imax=-3.14e+100
 			for j in range(0,M):
 				jmax=-3.14e+100
+				max_path=0
 				for k in range(0,M):
 					p3=DP[i-1][k]+P1[i][j]+P2[j][k]
 					if p3>jmax:
 						jmax=p3
+						max_path=k
 				DP[i][j]=jmax
-			for j in range(0,M):
-				if DP[i][j]>imax:
-					imax=DP[i][j]
-					ans[i]=stags[j]
+				Path[i][j]=max_path
+
+		imax=-3.14e+100
+		for j in range(0,M):
+			if DP[N-1][j]>imax:
+				imax=DP[N-1][j]
+				ans[N-1]=stags[j]
+				max_path=j
+
+		for i in range(N-1,0,-1):
+			max_path=Path[i][max_path]
+			ans[i-1]=stags[max_path]
 
 		return ans
 
@@ -254,11 +262,12 @@ class HMM:
 		for line in fin.readlines():
 			line=line.strip()
 			if len(line)==0:
+				fout.write('\n')
 				continue
 			ans=self._sperdict(line)
 			j=0
 			#wordl=[]
-			for i in range(0,len(ans)):
+			for i in range(0,len(line)):
 				if ans[i]=='S':
 					fout.write(line[j])
 					j+=1
@@ -295,25 +304,22 @@ class HMM:
 
 		for i in range(0,N):
 			for j in range(0,M):
-				p=(self._word_tag_num[(words_list[i],tags[j])])/self._tags_num[tags[j]]
+				p=(self._word_tag_num[(words_list[i],tags[j])])/(self._tags_num[tags[j]])
 				if p==0:
-					p=0.000000001
+					p=0.0000001
 				P1[i][j]=math.log(p)
 
 		for i in range(0,M):
 			for j in range(0,M):
-				p=self._tags_tran[(tags[i],tags[j])]/self._tags_num[tags[j]]
+				p=(self._tags_tran[(tags[i],tags[j])]+1)/(self._tags_num[tags[j]]+M)
 				if p==0:
-					p=0.000000001
+					p=0.0000001
 				P2[i][j]=math.log(p)
 
-		#DP=[[0]*M]*N
-		#print (P1)
-		#print (P2)
 		DP=[[0 for i in range(M)] for j in range(N)]
+		Path=[[0 for i in range(M)] for j in range(N)]
 		ans=[0 for i in range(N)]
 		mmax=-3.14e+100
-		mult=1000
 
 		for j in range(0,M):
 			DP[0][j]=P1[0][j]
@@ -326,15 +332,31 @@ class HMM:
 			imax=-3.14e+100
 			for j in range(0,M):
 				jmax=-3.14e+100
+				max_path=0
 				for k in range(0,M):
 					p3=DP[i-1][k]+P1[i][j]+P2[j][k]
 					if p3>jmax:
 						jmax=p3
+						max_path=k
 				DP[i][j]=jmax
-			for j in range(0,M):
-				if DP[i][j]>imax:
-					imax=DP[i][j]
-					ans[i]=tags[j]
+				Path[i][j]=max_path
+		#	for j in range(0,M):
+		#		if DP[i][j]>imax:
+		#			imax=DP[i][j]
+		#			ans[i]=tags[j]
+
+		imax=-3.14e+100
+		for j in range(0,M):
+			if DP[N-1][j]>imax:
+				imax=DP[N-1][j]
+				ans[N-1]=tags[j]
+				max_path=j
+
+		for i in range(N-1,0,-1):
+			max_path=Path[i][max_path]
+			ans[i-1]=tags[max_path]
+		#print (P1)
+		#print (DP)
 		#print (ans)
 		return ans
 
@@ -358,6 +380,44 @@ class HMM:
 		fout.close()
 
 
+	def inter(self,test_file,result_file):
+		fin=codecs.open(test_file,'r','utf-8')
+		fout=codecs.open(result_file,'w','utf-8')
+		for line in fin.readlines():
+			line=line.strip()
+			if len(line)==0:
+				fout.write('\n')
+				continue
+			stags=self._sperdict(line)
+			words=[]
+			word=''
+			
+			for i in range(0,len(line)):
+				if stags[i]=='S':
+					word=line[i]
+					words.append(word)
+					word=''
+				elif stags[i]=='B':
+					word=line[i]
+				elif stags[i]=='M':
+					word+=line[i]
+				else:
+					word+=line[i]
+					words.append(word)
+					word=''
+			#print (words)
+			tags=self._perdict(words)
+			for i in range(0,len(words)):
+				fout.write(words[i])
+				fout.write('/')
+				fout.write(tags[i])
+				fout.write('  ')
+			fout.write('\n')
+
+		fin.close()
+		fout.close()
+
+
 
 
 
@@ -367,8 +427,10 @@ if __name__ == '__main__':
 	result_file=test_file+'.result'
 	h=HMM()
 	h.load_file(train_file)
+
 	#h.show_data()
 	#h.test(test_file,result_file)
-	h.stest(test_file,result_file)
+	#h.stest(test_file,result_file)
+	h.inter(test_file,result_file)
 
  

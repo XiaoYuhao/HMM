@@ -7,6 +7,19 @@ import math
 import pickle
 from collections import defaultdict
 
+def make_stest(input_file,output_file):
+	fin=codecs.open(input_file,'r','utf-8')
+	fout=codecs.open(output_file,'w','utf-8')
+
+	for line in fin.readlines():
+		word_list=line.strip().split()
+		word_line=''.join(word_list)
+		fout.write(word_line)
+		fout.write("\n")
+
+	fin.close()
+	fout.close()
+
 def make_test(input_file,output_file):
 	fin=codecs.open(input_file,"r","utf-8")
 	fout=codecs.open(output_file,"w","utf-8")
@@ -73,6 +86,48 @@ def score(result_file,gold_file):
 	print ("正确率：%g" %(p))
 
 
+def inter_socre(result_file,std_file):
+	fina=codecs.open(result_file,'r','utf-8')
+	finb=codecs.open(std_file,'r','utf-8')
+	linea=fina.readlines()
+	lineb=finb.readlines()
+	correct=0
+	counta=0
+	countb=0
+	for i in range(0,len(linea)):
+		worda_list=linea[i].strip().split()
+		wordb_list=lineb[i].strip().split()
+		words=defaultdict(int)
+		for worda in worda_list:
+			word_tag=worda.split('/')
+			word=word_tag[0]
+			tag=word_tag[1]
+			words[(word,tag)]+=1
+			counta+=1
+
+		for wordb in wordb_list:
+			word_tag=wordb.split('/')
+			word=word_tag[0]
+			tag=word_tag[1]
+			words[(word,tag)]+=1
+			countb+=1
+
+		for value in words.values():
+			if value>=2:
+				correct+=math.floor(value/2)
+
+	p=correct/counta
+	r=correct/countb
+	f=(2*p*r)/(p+r)
+	
+	print ("正确标注数：%d" %(correct))
+	print ("结果文件中总词数：%d" %(counta))
+	print ("正确率(P)：%g" %(p))
+	print ("标准文件中总词数：%d" %(countb))
+	print ("召回率(R):%g" %(r))
+	print ("测度值(F):%g" %(f))
+
+
 
 
 if __name__ == '__main__':
@@ -82,6 +137,17 @@ if __name__ == '__main__':
 #	make_test(input_file,output_file)
 #	make_gold(input_file,gold_file)
 
+#	input_file=sys.argv[1]
+#	gold_file=sys.argv[2]
+#	score(input_file,gold_file)
+
+#	make_stest:
+#	input_file=sys.argv[1]
+#	output_file=input_file+'.stest'
+#	make_stest(input_file,output_file)
+
 	input_file=sys.argv[1]
 	gold_file=sys.argv[2]
-	score(input_file,gold_file)
+	inter_socre(input_file,gold_file)
+
+	
